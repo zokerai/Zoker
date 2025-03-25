@@ -8,7 +8,7 @@ from git import Repo  # Requires GitPython (pip install gitpython)
 
 # AI Configuration Files
 CONFIG_FILE = "config.json"
-MAIN_SCRIPT = "zoker_ai.py"
+MAIN_SCRIPT = "zoker.py"
 GITHUB_REPO = "https://github.com/zokerai/Zoker"
 GITHUB_LOCAL_PATH = "./zoker_repo"
 
@@ -54,39 +54,61 @@ def scrape_code_improvements():
                 'Upgrade-Insecure-Requests': '1'
             }
             response = requests.get(site, headers=headers)
-            soup = BeautifulSoup(response.text, "html.parser")
-            scraped_text += soup.get_text()[:1000]  # Scrape the first 1000 characters
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, "html.parser")
+                scraped_text += soup.get_text()[:1000]  # Scrape the first 1000 characters
+            else:
+                print(f"Failed to fetch {site}: HTTP Status {response.status_code}")
             time.sleep(2)  # Prevent too many requests in a short time
         except Exception as e:
             print(f"Error scraping {site}: {e}")
     
     return scraped_text
 
+# Clean text to remove invalid characters
+def clean_text(text):
+    # Remove non-ASCII characters and other invalid characters
+    return ''.join([char if ord(char) < 128 else ' ' for char in text])  # Remove non-ASCII characters
+
 # Write new improved code
 def write_new_code(improvements):
     new_code = f"# AI-Generated Improvements\n\n{improvements}"
-    with open(MAIN_SCRIPT, "w", encoding="utf-8") as file:  # Use utf-8 encoding to prevent encoding issues
-        file.write(new_code)
+    try:
+        cleaned_code = clean_text(new_code)  # Clean text to remove invalid characters
+        with open(MAIN_SCRIPT, "w", encoding="utf-8") as file:  # Use utf-8 encoding to prevent encoding issues
+            file.write(cleaned_code)
+    except Exception as e:
+        print(f"Error writing to {MAIN_SCRIPT}: {e}")
 
 # Push updated code to GitHub
 def push_to_github():
-    if not os.path.exists(GITHUB_LOCAL_PATH):
-        Repo.clone_from(GITHUB_REPO, GITHUB_LOCAL_PATH)
+    try:
+        if not os.path.exists(GITHUB_LOCAL_PATH):
+            print("Cloning the repository from GitHub...")
+            Repo.clone_from(GITHUB_REPO, GITHUB_LOCAL_PATH)
 
-    repo = Repo(GITHUB_LOCAL_PATH)
-    repo.git.add(MAIN_SCRIPT)
-    repo.index.commit("Auto-update: Code improvements from web scraping")
-    origin = repo.remote(name="origin")
-    origin.push()
+        repo = Repo(GITHUB_LOCAL_PATH)
+        repo.git.add(MAIN_SCRIPT)
+        repo.index.commit("Auto-update: Code improvements from web scraping")
+        origin = repo.remote(name="origin")
+        origin.push()
+    except Exception as e:
+        print(f"Error pushing to GitHub: {e}")
 
 # Auto-run updated script
 def run_updated_script():
-    os.system(f"python {MAIN_SCRIPT}")
+    try:
+        os.system(f"python {MAIN_SCRIPT}")
+    except Exception as e:
+        print(f"Error running updated script: {e}")
 
 # Log AI actions
 def log_action(action):
-    with open("zoker_log.txt", "a", encoding="utf-8") as file:  # Ensure UTF-8 encoding
-        file.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - {action}\n")
+    try:
+        with open("zoker_log.txt", "a", encoding="utf-8") as file:  # Ensure UTF-8 encoding
+            file.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - {action}\n")
+    except Exception as e:
+        print(f"Error logging action: {e}")
 
 # Scrape web pages for knowledge (code-focused websites)
 def start_learning():
@@ -113,7 +135,6 @@ def auto_improve():
 
     print("🔍 Reading AI's own code...")
     code = read_own_code()
-    
     print("🛠 Scraping code improvements from the web...")
     improvements = scrape_code_improvements()
 
@@ -144,7 +165,7 @@ def control_ai():
         elif command == "exit":
             break
         else:
-            print("Invalid command.")
+            print("Invalid command. Please enter one of: start, stop, status, exit, improve.")
 
 # Run AI Control
 control_ai()
